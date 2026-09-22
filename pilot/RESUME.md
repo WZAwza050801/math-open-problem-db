@@ -1,7 +1,29 @@
 # 断点交接记录（RESUME）
 
-> 最后更新：2026-09-17 22:35 GMT+8
+> 最后更新：2026-09-23 00:15 GMT+8
 > 用途：随时中断、随时继续。下面每一条都是"下次回来照着做就行"。
+
+---
+
+## 〇、全量跑批最新状态（2026-09-23 凌晨）
+
+| 项 | 状态 |
+|---|---|
+| 服务器试跑 | ✅ 收官：39/40、377 卡（`1706.03152` reasoning 思考饿死，重试逻辑正确止损，fast 也没救回，放弃该篇不影响验收） |
+| GLM 额度 | ✅ `GLM_RESOURCEPACK_KEY`（资源包）实测 HTTP 200 / 2.2s。**注意：glm-5.3 现在强制思考，`thinking:disabled` 报 1210 错**；管线用 enabled 不受影响 |
+| 全量候选清单 | ✅ **823 篇**（annals 285 / inventiones 325 / jams 128 / acta 71 / ihes 14） |
+| 全文预下载 | 🔄 本机后台跑 `precache_fulltext.py`（零 API 成本，幂等可续跑），预计 ~2h |
+| 下一步 | 预下载完成 → 打包 latex_cache + candidates.json 传服务器 → `PILOT_WORKERS=12 nohup` 跑批 |
+
+**本轮两个新发现（都有代码）**：
+1. **arXiv 响应截断在恰好 200 条**：同一查询一次返回 304、之后恒返回 200 → 加了分页
+   （`harvest_full.py` 的 `arxiv_query_paginated`，按 200/页翻页到短页为止），语料 711 → **823**。
+2. **harvest.py 单次跑会被代理 502 团灭并覆盖 candidates.json** → 新增 `harvest_full.py`：
+   池子/完成标记持久化（`arxiv_pool.json` + `queries_done.json`），失败查询下次续跑，
+   全部查询齐了才 join 写 candidates.json。清标记 = 覆写 `{}`，不要删文件（沙箱拦删除）。
+
+**新增文件**：`harvest_full.py`（增量全量采集）、`precache_fulltext.py`（零成本全文预下载）、
+`candidates_pilot40.json`（pilot 40 篇备份）、`arxiv_pool.json` / `queries_done.json`（采集状态）。
 
 ---
 
