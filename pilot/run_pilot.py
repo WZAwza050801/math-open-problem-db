@@ -64,11 +64,26 @@ def load_env_file(path):
 
 _LOCAL_ENV = load_env_file(BASE / ".env")
 
-GLM_BASE = "https://open.bigmodel.cn/api/coding/paas/v4"
-# NEVER hard-code the key here. Set the GLM_KEY environment variable, or put
-# GLM_KEY=... in pilot/.env (gitignored). Template: pilot/.env.example
-GLM_KEY = os.environ.get("GLM_KEY") or _LOCAL_ENV.get("GLM_KEY", "")
-GLM_MODEL = "glm-5.3"
+GLM_BASE = os.environ.get("GLM_BASE_URL") or "https://open.bigmodel.cn/api/coding/paas/v4"
+# Coding Plan endpoint (-- /api/coding/paas/v4 deducts SUBSCRIPTION credits).
+# NEVER swap to /api/paas/v4: that endpoint bills the account balance
+# (pay-as-you-go). Quota exhaustion on the coding endpoint raises an error
+# instead of spending money -- that is the desired failure mode.
+#
+# Key chain: GLM_KEYS env (comma-separated) > GLM_KEY env > .env coding keys.
+# When one key's quota runs out (1113 balance / 429 quota / 1311 plan), calls
+# rotate to the next key; the chain NEVER falls back to a pay-as-you-go key.
+GLM_KEYS = [k.strip() for k in os.environ.get("GLM_KEYS", "").split(",") if k.strip()]
+if not GLM_KEYS:
+    _k1 = os.environ.get("GLM_KEY") or _LOCAL_ENV.get("GLM_KEY", "")
+    if _k1:
+        GLM_KEYS = [_k1]
+if not GLM_KEYS:
+    GLM_KEYS = [k for k in (_LOCAL_ENV.get("GLM_CODING_LITE_KEY", ""),
+                            _LOCAL_ENV.get("GLM_CODING_TEAM_KEY", "")) if k]
+GLM_MODEL = os.environ.get("GLM_MODEL", "glm-5.3")
+# Keys that are forbidden on the billing endpoint even as a last resort.
+GLM_KEYS = [k for k in GLM_KEYS if k]
 
 # All three knobs are environment-overridable so a server run can be tuned
 # without editing source: PILOT_WORKERS=16 MAX_CHARS=180000 python run_pilot.py
@@ -384,19 +399,49 @@ def parse_json_loose(text):
 
 
 def _glm_call(prompt, max_tokens, thinking):
-    if not GLM_KEY:
+    if not GLM_KEYS:
         raise RuntimeError(
-            "missing credential GLM_KEY - export GLM_KEY=..., or add GLM_KEY=... to "
-            f"{BASE / '.env'} (copy .env.example). Never commit the real key.")
+            "missing credential: set GLM_KEYS (comma-separated coding-plan keys), or add "
+            "GLM_CODING_LITE_KEY / GLM_CODING_TEAM_KEY to "
+            f"{BASE / '.env'}. Never commit real keys.")
     body = {"model": GLM_MODEL, "messages": [{"role": "user", "content": prompt}],
             "max_tokens": max_tokens, "temperature": 0.1}
     if thinking is not None:
         body["thinking"] = {"type": thinking}
-    req = urllib.request.Request(
-        GLM_BASE.rstrip("/") + "/chat/completions", data=json.dumps(body).encode(), method="POST",
-        headers={"Authorization": "Bearer " + GLM_KEY, "Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=900) as resp:
-        return json.load(resp)
+    # Quota-exhaustion signatures on the coding endpoint. On these we rotate to
+    # the next key in the chain instead of retrying the spent key. A billing
+    # endpoint (1113 balance) can never be reached because GLM_BASE is pinned
+    # to /api/coding/paas/v4.
+    _QUOTA_SIGNS = ("1113", "1311", "1302", "余额不足", "资源包", "额度")
+    last = None
+    for ki, key in enumerate(GLM_KEYS):
+        req = urllib.request.Request(
+            GLM_BASE.rstrip("/") + "/chat/completions", data=json.dumps(body).encode(), method="POST",
+            headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=900) as resp:
+                return json.load(resp)
+        except urllib.error.HTTPError as e:
+            detail = ""
+            try:
+                detail = e.read().decode("utf-8", "replace")
+            except Exception:
+                pass
+            quota_spent = e.code == 429 and any(s in detail for s in _QUOTA_SIGNS)
+            last = f"key#{ki + 1} HTTP {e.code}: {detail[:160]}"
+            log(f"  [glm] {last}")
+            if quota_spent and ki + 1 < len(GLM_KEYS):
+                continue            # rotate to next key
+            if e.code == 429:
+                raise urllib.error.HTTPError(req.full_url, e.code, detail[:200], e.headers, None)
+            raise
+        except Exception as e:
+            last = f"key#{ki + 1} {type(e).__name__}: {e}"
+            log(f"  [glm] {last}")
+            if ki + 1 < len(GLM_KEYS):
+                continue
+            raise
+    raise RuntimeError(f"all {len(GLM_KEYS)} GLM keys failed; last: {last}")
 
 
 def truncate_source(text, budget=MAX_CHARS, tail_frac=TAIL_FRACTION):

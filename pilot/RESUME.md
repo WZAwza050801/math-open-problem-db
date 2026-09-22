@@ -10,10 +10,10 @@
 | 项 | 状态 |
 |---|---|
 | 服务器试跑 | ✅ 收官：39/40、377 卡（`1706.03152` reasoning 思考饿死，重试逻辑正确止损，fast 也没救回，放弃该篇不影响验收） |
-| GLM 额度 | ✅ `GLM_RESOURCEPACK_KEY`（资源包）实测 HTTP 200 / 2.2s。**注意：glm-5.3 现在强制思考，`thinking:disabled` 报 1210 错**；管线用 enabled 不受影响 |
+| **API 体系（09-23 凌晨换血）** | ✅ 弃用过期 Coding Plan，改用 **两把新 Coding Plan key**（个人 Lite + 团队席位），**只走 coding 端点** `/api/coding/paas/v4`，绝不碰按量端点。详见 **`KEYS_LEDGER.md`**（台账+积分账本+策略）。`run_pilot.py` 已实装：`GLM_BASE_URL` 可覆盖、`GLM_KEYS` 多 key 链额度耗尽自动轮换、flashx 无权限（1311） |
 | 全量候选清单 | ✅ **823 篇**（annals 285 / inventiones 325 / jams 128 / acta 71 / ihes 14） |
-| 全文预下载 | 🔄 本机后台跑 `precache_fulltext.py`（零 API 成本，幂等可续跑），预计 ~2h |
-| 下一步 | 预下载完成 → 打包 latex_cache + candidates.json 传服务器 → `PILOT_WORKERS=12 nohup` 跑批 |
+| 全文预下载 | ⏸ 63/823 后用户叫停；续跑命令：`python precache_fulltext.py`（幂等） |
+| 下一步 | 预下载完成 → 打包 latex_cache + candidates.json 传服务器（key 用 `export GLM_KEYS=` 注入）→ 跑批。积分账：823 篇 @5.3 非高峰 ≈66,300 积分 < 两池周额度 76,000 → 一周可零现金磨完 |
 
 **本轮两个新发现（都有代码）**：
 1. **arXiv 响应截断在恰好 200 条**：同一查询一次返回 304、之后恒返回 200 → 加了分页

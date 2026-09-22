@@ -1,0 +1,126 @@
+[
+ {
+  "key": "lite",
+  "endpoint": "coding",
+  "model": "glm-5.3",
+  "status": "OK",
+  "ms": 2026,
+  "finish": "stop",
+  "content": "OK",
+  "prompt_tokens": 17,
+  "completion_tokens": 14,
+  "reasoning_tokens": 11
+ },
+ {
+  "key": "lite",
+  "endpoint": "coding",
+  "model": "glm-5.3-flash",
+  "status": "OK",
+  "ms": 1757,
+  "finish": "stop",
+  "content": "OK",
+  "prompt_tokens": 17,
+  "completion_tokens": 33,
+  "reasoning_tokens": 30
+ },
+ {
+  "key": "lite",
+  "endpoint": "coding",
+  "model": "glm-5.3-flashx",
+  "status": "HTTP 429",
+  "ms": 195,
+  "detail": "{\"error\":{\"code\":\"1311\",\"message\":\"当前订阅套餐暂未开放GLM-5.3-FlashX权限\"}}"
+ },
+ {
+  "key": "lite",
+  "endpoint": "paas",
+  "model": "glm-5.3",
+  "status": "OK",
+  "ms": 6420,
+  "finish": "stop",
+  "content": "OK",
+  "prompt_tokens": 17,
+  "completion_tokens": 130,
+  "reasoning_tokens": 127
+ },
+ {
+  "key": "lite",
+  "endpoint": "paas",
+  "model": "glm-5.3-flash",
+  "status": "OK",
+  "ms": 5269,
+  "finish": "stop",
+  "content": "OK",
+  "prompt_tokens": 17,
+  "completion_tokens": 109,
+  "reasoning_tokens": 106
+ },
+ {
+  "key": "lite",
+  "endpoint": "paas",
+  "model": "glm-5.3-flashx",
+  "status": "OK",
+  "ms": 1226,
+  "finish": "stop",
+  "content": "OK",
+  "prompt_tokens": 17,
+  "completion_tokens": 45,
+  "reasoning_tokens": 42
+ },
+ {
+  "key": "team",
+  "endpoint": "coding",
+  "model": "glm-5.3",
+  "status": "OK",
+  "ms": 3103,
+  "finish": "stop",
+  "content": "OK",
+  "prompt_tokens": 17,
+  "completion_tokens": 14,
+  "reasoning_tokens": 11
+ },
+ {
+  "key": "team",
+  "endpoint": "coding",
+  "model": "glm-5.3-flash",
+  "status": "OK",
+  "ms": 2597,
+  "finish": "stop",
+  "content": "OK",
+  "prompt_tokens": 17,
+  "completion_tokens": 75,
+  "reasoning_tokens": 72
+ },
+ {
+  "key": "team",
+  "endpoint": "coding",
+  "model": "glm-5.3-flashx",
+  "status": "HTTP 429",
+  "ms": 159,
+  "detail": "{\"error\":{\"code\":\"1311\",\"message\":\"当前订阅套餐暂未开放GLM-5.3-FlashX权限\"}}"
+ },
+ {
+  "key": "team",
+  "endpoint": "paas",
+  "model": "glm-5.3",
+  "status": "HTTP 429",
+  "ms": 164,
+  "detail": "{\"error\":{\"code\":\"1113\",\"message\":\"余额不足或无可用资源包,请充值。\"}}"
+ },
+ {
+  "key": "team",
+  "endpoint": "paas",
+  "model": "glm-5.3-flash",
+  "status": "HTTP 429",
+  "ms": 139,
+  "detail": "{\"error\":{\"code\":\"1113\",\"message\":\"余额不足或无可用资源包,请充值。\"}}"
+ },
+ {
+  "key": "team",
+  "endpoint": "paas",
+  "model": "glm-5.3-flashx",
+  "status": "HTTP 429",
+  "ms": 164,
+  "detail": "{\"error\":{\"code\":\"1311\",\"message\":\"当前订阅套餐暂未开放GLM-5.3-FlashX权限\"}}"
+ }
+]
