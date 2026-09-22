@@ -141,17 +141,17 @@ cd D:/数学研究平台开发/open_problem_db/pilot
 
 | 项 | 值 |
 |---|---|
-| 模型 | `glm-5.3`（GLM Coding Plan 团队版，**9-18 到期**） |
-| Key 位置 | ⚠️ **仍然写死在本目录 `run_pilot.py` 第 45 行 `GLM_KEY` 常量** |
-| 备胎 | DeepSeek（已探活） |
+| 模型 | `glm-5.3`（GLM Coding Plan 团队版，**9-18 到期**；失效则换资源包 key） |
+| Key 位置 | ✅ **不再硬编码**。优先读环境变量 `GLM_KEY`，其次读 `pilot/.env`（已被 gitignore） |
+| 备胎 | DeepSeek（`DEEPSEEK_API_KEY`，已探活）；GLM 资源包 key `GLM_RESOURCEPACK_KEY` |
 | 并发 | `PILOT_WORKERS` 环境变量，默认 6 |
 | 全文预算 | `MAX_CHARS = 260_000`（头 65% + 尾 35%） |
 | 缓存命名 | `.tex` = LaTeX 源码 / `.ar5iv.txt` = HTML 兜底 |
 
-> ⚠️ **上服务器前必须先做**：把 `GLM_KEY` 挪到环境变量（`os.environ["GLM_KEY"]`），
-> 否则一旦这台机器是课题组共用，或文件被 scp/截图/提交 git，key 就泄露了。
-> 同样地，`candidates.json` / `crossref_toc.json` / `latex_cache/` / `db.sqlite3` 都是生成物，
-> 上服务器时可以不带（`harvest.py` 能重建），**别把本地绝对路径写进任何上传的脚本**。
+> **凭据怎么配**：本地直接跑就行（`pilot/.env` 里已经有值）。
+> 换机器/上服务器时，复制 `pilot/.env.example` 为 `.env` 填值，
+> 或者直接 `export GLM_KEY=...`（环境变量优先级更高）。
+> **`.env` 被 gitignore 拦住，真实密钥永远不会进版本库。**
 
 ---
 
@@ -162,6 +162,33 @@ cd D:/数学研究平台开发/open_problem_db/pilot
 - **冷启动"三年"**：真实仅 **434 篇**分母，arXiv 可得约 70 篇——不是原以为的 1500 篇。
 - **采集精度**：Crossref 背书，误判 0（旧方案查准率仅 39%）。
 - 完整方案见 `D:\数学研究平台开发\ai_math_recommend\docs\OPEN_PROBLEM_DB_TECH_SPEC_v0.1.md`（§2 采集 / §4 架构 / §5 成本 / §6 里程碑均已按实测重写）。
+
+---
+
+## 八、版本控制状态（2026-09-22 起）
+
+本目录已纳入 git。**仓库根是 `open_problem_db/`**（不是 `pilot/`），分支 `main`。
+
+| 项 | 状态 |
+|---|---|
+| 首次提交 | `52ddbd1`（29 files, +46653） |
+| 远程仓库 | ⏸ **尚未创建**（仓库名 / 公开私有待确认） |
+| 凭据 | ✅ 已移出代码；`.env` 被 gitignore 拦下 |
+
+**已被忽略的（不要提交）**：`latex_cache/`（11M，可从 arXiv 重拉）、
+`*.sqlite3`（二进制，内容已由 `exports/*.jsonl` 文本留存）、`__pycache__/`、
+`.env`、`diag_last_content.txt`、`fetch_report.json`
+
+**推送前自检三连**：
+```bash
+git check-ignore -v pilot/.env        # 确认忽略规则真的命中
+git status --short -uall              # 展开到文件级，别信折叠的目录名
+git grep -n -E "[0-9a-f]{32}\.[A-Za-z0-9]{16}|sk-[A-Za-z0-9]{20,}" HEAD   # 应零命中
+```
+
+**跨机器注意**：`run_pilot.py` 等脚本里的路径都基于 `Path(__file__).parent`，
+不写死绝对路径，拷到服务器能直接跑。上服务器时**不必带** `candidates.json` /
+`crossref_toc.json` / `latex_cache/`（`harvest.py` 能重建），密钥用环境变量注入。
 
 ### 成本（按 GLM-5.3 官方价 8 元/M 输入、28 元/M 输出实算）
 
