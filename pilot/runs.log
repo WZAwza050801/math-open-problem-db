@@ -1,0 +1,1 @@
+2026-09-18T15:51:29 run_pilot candidates=40 processed=11 {'extracted': 10, 'no_fulltext': 0, 'failed': 1} cards=99 tokens_in=1280035 tokens_out=561728 seconds=2332
