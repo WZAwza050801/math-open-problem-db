@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import difflib
 import json
+import os
 import random
 import re
 import ssl
@@ -66,8 +67,18 @@ ARXIV_QUERIES = {
     "ihes": ['jr:"Publ. Math. Inst. Hautes"', 'jr:Hautes'],
 }
 
-PER_JOURNAL = 8          # how many confirmed papers to take per journal
-CANDIDATES_PER_QUERY = 200
+# Corpus size. The defaults are PILOT sized (8 per journal) so a casual run stays
+# cheap. For a full-corpus run set the environment variables rather than editing
+# this file, so the same source serves both modes:
+#
+#   PER_JOURNAL=100000 CANDIDATES_PER_QUERY=2000 python harvest.py
+#
+# CANDIDATES_PER_QUERY is the arXiv pool fetched per quoted-phrase query, and it
+# is what bounds recall: only papers present in that pool can be joined to the
+# Crossref list. arXiv serves at most 2000 per request, so 2000 is the ceiling
+# for a single query.
+PER_JOURNAL = int(os.environ.get("PER_JOURNAL", "8"))
+CANDIDATES_PER_QUERY = int(os.environ.get("CANDIDATES_PER_QUERY", "200"))
 
 
 # ------------------------------------------------------------------ helpers

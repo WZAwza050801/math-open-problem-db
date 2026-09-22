@@ -70,10 +70,21 @@ GLM_BASE = "https://open.bigmodel.cn/api/coding/paas/v4"
 GLM_KEY = os.environ.get("GLM_KEY") or _LOCAL_ENV.get("GLM_KEY", "")
 GLM_MODEL = "glm-5.3"
 
+# All three knobs are environment-overridable so a server run can be tuned
+# without editing source: PILOT_WORKERS=16 MAX_CHARS=180000 python run_pilot.py
+#
+# WORKERS  - concurrent LLM calls. This is the real speed lever, because the
+#            bottleneck is waiting on the API, not local compute. Raise it until
+#            the provider rate-limits, then back off.
+# ARXIV_GAP- seconds between arXiv fulltext requests, enforced globally across
+#            threads. arXiv punishes bursts, so downloads stay serial by design;
+#            they are not the bottleneck anyway.
+# MAX_CHARS- source budget per paper. This is the COST lever: input scales with
+#            paper length and dominates the bill on long-form corpora.
 WORKERS = int(os.environ.get("PILOT_WORKERS", "6"))
-ARXIV_GAP = 5          # seconds between arXiv requests, globally
-MAX_CHARS = 260_000    # total source budget sent to the model (median paper is 207k)
-TAIL_FRACTION = 0.35   # keep the ending: open problems cluster in the concluding section
+ARXIV_GAP = float(os.environ.get("ARXIV_GAP", "5"))
+MAX_CHARS = int(os.environ.get("MAX_CHARS", "260000"))   # median paper is 207k
+TAIL_FRACTION = float(os.environ.get("TAIL_FRACTION", "0.35"))
 
 UA = {"User-Agent": "open-problem-db-pilot/0.1 (research; contact: local)"}
 BROWSER_UA = {
