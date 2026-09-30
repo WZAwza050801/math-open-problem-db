@@ -41,3 +41,79 @@ venv/
 .DS_Store
 Thumbs.db
 *.swp
+
+# 2026-09-30 整理：归档区不入库（含陈旧 db 快照，体积大且可追溯）
+pilot/attic/
+
+# ============ 2026-10-01 公开仓库对齐补丁 ============
+# 数据正本与产物（公开仓库只放文档/提示词/脚本，数据有备份制度不进 git）
+pilot/exports/*.jsonl
+pilot/backups/
+pilot/backfill_missing.json
+pilot/batch400*.json
+pilot/candidates*.json
+pilot/citation_enrich_*.jsonl
+pilot/citations.jsonl
+pilot/crossref_toc.json
+pilot/difficulty_*.json
+pilot/five_journal_backfill*.json*
+pilot/identity_candidates_*.jsonl
+pilot/influence_*.jsonl
+pilot/influence_*.log
+pilot/next_batch*.json
+pilot/unclustered_*.jsonl
+pilot/unclustered_*.npy
+pilot/msc2020_map.json
+pilot/gold_set.json
+pilot/paper_enrich_*.jsonl
+pilot/canonical_rep_map.json
+pilot/clustered_card_ids.json
+pilot/canon_results*.json
+pilot/anchor_*.json*
+pilot/next_batch.json
+pilot/runs/
+pilot/logs/
+pilot/audits/
+pilot/review_pack_*/
+pilot/s2_influence/
+pilot/verdicts*.jsonl
+pilot/scratch/
+pilot/rubric_v11.txt.tmp
+# 密钥文件（点开头）——与 *.key 互补，覆盖无扩展名情况
+pilot/.glm_key
+pilot/.team2_key
+pilot/.kimi_key
+pilot/.qds_key
+pilot/.qglm_key
+pilot/.qianfan_key
+pilot/.ark_key
+pilot/.deepseek_key
+pilot/.env
+# 本地大库/原型区/备份（数据正本不入库）
+canon_prototype/
+ddl_migration/
+backups/
+public_export/
+reports/
+review_pack_2026-09-29/
+pilot/_report_pdf_extract.txt
+pilot/precache_backfill_failed.json
+pilot/unclustered_embeddings_2026-09-30_ids.json
+pilot/exports/
+pilot/canon_demo_stats.py.tmp
+# 敏感度复核中（含密钥前缀讨论）：先挡住，公开版另行脱敏
+pilot/runs.log
+# 外部数据源区（模型/数据/影子库，体积大且可再生）
+external_ingest/
+# 大向量文件兜底
+*.npy
+pilot/influence_citing_paper_embeddings_ids.json
+# 影响力试判数据（含论文原文证据，不入公开库）
+pilot/influence_calibration/
+# 候选池/富化数据与杂项数据
+pilot/arxiv_pool.json
+pilot/enrich_results.jsonl
+pilot/citation_enrich_done.txt
+# 日志与草稿
+*.log
+_report_pdf_extract.txt

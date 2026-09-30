@@ -1,16 +1,20 @@
 # GLM Key 台账与分配策略
 
-> 更新：2026-09-23 01:20 GMT+8
-> 明文密钥只存在 `pilot/.env`（gitignore）和用户的密码书。本文件只记前缀和策略。
+> 更新：2026-09-27 02:00 GMT+8
+> 明文密钥只存在 `pilot/.env`（本机+服务器，gitignore/600）和用户的密码书。本文件只记前缀和策略。
 
-## 一、Key 清单（实测 2026-09-23 凌晨）
+## 一、Key 清单（实测 2026-09-27 凌晨）
 
 | 名称 | 前缀 | 套餐 | 额度 | 状态 |
 |---|---|---|---|---|
-| lite | `6395f31e` | 个人 Lite（Coding Plan） | 2,000 积分/5h + 10,000/周 | ✅ coding 端点 glm-5.3 / 5.3-flash 通 |
-| team | `884fd568` | 团队席位（Coding Plan） | 15,000 积分/5h + 66,000/周 | ✅ 同上；且按量端点被 1113 硬拒（防误扣） |
+| **team2** | `955ac1ff` | 团队席位（Coding Plan）**新开** | 待实测（15,000/5h + 66,000/周 级别？） | ✅ 2026-09-27 实测 coding 端点 glm-5.3 / 5.3-flash 双通；**裁决链首位**；已入本机+服务器 .env（GLM_CODING_TEAM2_KEY） |
+| team | `884fd568` | 团队席位（Coding Plan） | 15,000 积分/5h + 66,000/周 | ⛔ 1310 周上限，2026-09-29 08:05:49 重置；重置后回归链第二位 |
+| lite | `6395f31e` | 个人 Lite（Coding Plan） | 2,000 积分/5h + 10,000/周 | ⛔ 1310 周上限，2026-09-30 09:40 重置 |
 | resourcepack | `7b3e8bd5` | 资源包（按量扣减） | 未知余额 | ⏸ 备用，仅用户明确批准才动 |
-| 旧团队版 | `37cf5d59` | Coding Plan 团队版 | — | ❌ 2026-09-18 到期，已注释 |
+| 旧团队版 | `37cf5d59` | Coding Plan 团队版 | — | ❌ 2026-09-18 到期；**2026-09-27 实测 401 令牌过期**（用户误以为可用，已核实作废） |
+
+### 服务器裁决链当前顺序（canon_judge.py）
+team2（有量，现役）→ team（9/29 重置）→ lite（9/30 重置）→ Token Plan qwen3.8-max → SF Kimi-K2.6
 
 ## 二、端点铁律
 
@@ -57,3 +61,5 @@
 
 - Coding Plan 条款面向"编程/智能体工具交互式使用"，批量抽取属灰色地带；key 是用户自己的，决策权在用户
 - 服务器跑批时两把 key 都要用环境变量注入（`export GLM_KEYS=...`），不要落到服务器磁盘明文（或放服务器端 600 权限的 .env）
+
+| qianfan | `bce-v3/ALTAKSP` | 百度千帆 Token Plan（个人） | 见下 | ✅ **2026-09-29 修复**：此 key 是 Token Plan 个人版专属 key，**只能走专属端点** `https://qianfan.baidubce.com/v2/tokenplan/personal/chat/completions`（普通 `/v2/chat/completions` 一律 401 `token_plan_person_api_key_not_allowed`）。专属端点实测 deepseek-v4-pro 双通（OpenAI 兼容协议）。注意 Token Plan 个人版模型阵容与常规千帆不同（glm-5.3 在列；kimi-k2.6 已于 2026-09-29 下线）。key 存 pilot/.qianfan_key + .env(QIANFAN_API_KEY)，服务器副本 .qianfan_key(600) |

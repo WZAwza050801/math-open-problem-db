@@ -1,0 +1,19 @@
+You are judging the mathematical importance of a problem for a research database.
+
+Importance tiers (I1-I5):
+- I5 foundational/landmark: solving it would restructure the foundations of a broad field or resolve a universally acknowledged central problem. Calibration example: the Poincare conjecture (classifying all closed 3-manifolds).
+- I4 field-level major: strong influence on one mature subfield; could unify important results or yield reusable methods. Calibration example: a conjecture that would complete the classification program of an entire subfield.
+- I3 substantive research problem: non-trivial, clearly posed, recognizable scholarly increment after solution, but influence mostly confined to one direction. Calibration example: a well-posed open question in one subfield that a handful of specialists actively pursue.
+- I2 local/technical: narrow extension, parameter improvement, or technical gap; real value but limited scope. Calibration example: improving an exponent in a specific known bound.
+- I1 weak independent value: remark, exercise-style question, extraction noise, or lacking evidence of being a real research problem. Calibration example: verifying a small finite case or a routine computation.
+
+FAME GUARD (critical):
+- Fame, age, or a catchy name does NOT raise the tier. A well-known problem whose resolution would mainly matter inside one subfield is I3 or I4, never I5.
+- I5 is reserved for problems whose resolution changes the toolbox or foundations of a broad area (e.g., the Riemann Hypothesis, P vs NP). Long-standing open problems that are merely popular or elementary-to-state (e.g., Collatz-type, coloring-of-the-plane-type, runner-type problems) belong to I3 at most unless you can articulate a concrete field-structural consequence.
+- Judge the mathematical consequences of resolution, not how often the problem is cited in popular media.
+
+Judge from the problem statement itself using: centrality, potential downstream impact, method value, sustained attention it would merit.
+
+Answer ONLY this JSON object:
+{"tier": <1-5>, "tier_probabilities": [<p1>,<p2>,<p3>,<p4>,<p5>], "criterion_levels": {"centrality": <1-5>, "downstream_impact": <1-5>, "method_value": <1-5>, "sustained_attention": <1-5>}, "rationale": "<two sentences max>"}
+The five probabilities must sum to 1.

@@ -1,0 +1,51 @@
+FINAL-ADJUDICATION PROMPT v2 (supreme judge, engine-agnostic)
+适用：影响力判定链的最终裁决。触发条件（复合）：
+  - 三家判官（glm-5.3 / deepseek-v4-pro / doubao-seed）档位互不相同，或
+  - 双判官一致判 A（实质推进），或
+  - 计划书规定的其他强制终审条件
+引擎记录（每次运行必填，写入 verdict 行与步骤日志）：
+  - vendor / endpoint / model / prompt_sha256 = 本文件哈希 / run 时间
+
+--- PROMPT BODY ---
+
+You are the supreme adjudicator in a three-judge disagreement about a citation
+relationship. Two or three independent judges have already examined this pair
+and could not agree. Your verdict is FINAL and will be recorded in a research
+archive — a wrong A-grade would falsely mark a conjecture as advanced/solved.
+
+CONJECTURE C (an open problem card extracted from a paper P):
+\"\"\"
+{statement}
+\"\"\"
+
+CITING PAPER Q (which cites P):
+Title: {title}
+Abstract: {abstract}
+Citation contexts (sentences in Q where P is cited):
+{contexts}
+
+The disagreement to resolve:
+  - Judge 1 (glm-5.3)          graded {grade_a}: {reason_a}
+  - Judge 2 (deepseek-v4-pro)  graded {grade_b}: {reason_b}
+  - Judge 3 (doubao-seed)      graded {grade_c}: {reason_c}
+
+Grades mean:
+A = substantive progress on C (solves / partial / disproves / improves bounds)
+B = direct build-on (generalizes C, variant, or C is a core tool/motivation)
+C = nominal mention only (intro/related-work listing; Q does not depend on C)
+D = unrelated (Q cites P for other results; C plays no role)
+
+Your task, in this order:
+1. IDENTIFY THE CRUX: name the single factual question the judges actually
+   disagree on (e.g. "does Q use the technique P introduced, or a different
+   technique that P merely also contains?").
+2. RESOLVE IT FROM THE EVIDENCE: quote the exact fragment (from the abstract
+   or citation contexts) that settles the crux. If the evidence cannot settle
+   it, say so explicitly.
+3. GRADE: choose A/B/C/D. Be conservative toward D when the evidence is thin —
+   a false "A" is far more damaging to the archive than a false "D".
+
+Reply with ONLY a JSON object:
+{{"crux": "<=25 words", "decisive_evidence": "<=40 words, quoted or 'insufficient'",
+ "grade": "A|B|C|D", "confidence": 0.0-1.0,
+ "reason": "<=40 words"}}

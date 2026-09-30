@@ -19,6 +19,13 @@ import run_pilot as R
 def main():
     cands = json.loads(R.CANDIDATES_JSON.read_text(encoding="utf-8"))
     ids = [c["arxiv_id"] for c in cands]
+    # Optional sharding for parallel processes: PRECACHE_SHARD=1/3 runs ids[0::3].
+    # Shards are disjoint, so concurrent processes never race on the same file.
+    shard = R.os.environ.get("PRECACHE_SHARD", "")
+    if shard:
+        i, n = (int(x) for x in shard.split("/"))
+        ids = ids[i - 1::n]
+        print(f"[precache] shard {i}/{n}: {len(ids)} papers", flush=True)
     attempts = int(R.os.environ.get("PRECACHE_ATTEMPTS", "3"))
     print(f"[precache] {len(ids)} papers, gap={R.ARXIV_GAP}s, attempts={attempts}", flush=True)
 

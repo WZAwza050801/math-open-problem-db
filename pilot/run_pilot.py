@@ -39,7 +39,7 @@ BASE = Path(__file__).resolve().parent
 DB_PATH = BASE / "db.sqlite3"
 EXPORT_DIR = BASE / "exports"
 LATEX_CACHE = BASE / "latex_cache"
-CANDIDATES_JSON = BASE / "candidates.json"
+CANDIDATES_JSON = Path(os.environ.get("CANDIDATES_JSON_PATH") or (BASE / "candidates.json"))
 
 def load_env_file(path):
     """Minimal .env reader - deliberately dependency-free (stdlib only).
@@ -82,6 +82,14 @@ if not GLM_KEYS:
     GLM_KEYS = [k for k in (_LOCAL_ENV.get("GLM_CODING_LITE_KEY", ""),
                             _LOCAL_ENV.get("GLM_CODING_TEAM_KEY", "")) if k]
 GLM_MODEL = os.environ.get("GLM_MODEL", "glm-5.3")
+# Engine flavor: "glm" adds the GLM thinking param + GLM retry plan;
+# "openai" = generic OpenAI-compatible endpoint (Qwen token plan etc.),
+# no thinking param, smaller max_tokens plan.
+ENGINE_FLAVOR = os.environ.get("ENGINE_FLAVOR", "glm")
+# ENGINE_SLICE=i/N: process only every N-th paper of the remaining todo,
+# starting at i. Lets multiple engine processes share one queue with ZERO
+# overlap; every engine restarts recompute from done_ids, still disjoint.
+ENGINE_SLICE = os.environ.get("ENGINE_SLICE", "")
 # Keys that are forbidden on the billing endpoint even as a last resort.
 GLM_KEYS = [k for k in GLM_KEYS if k]
 
@@ -405,42 +413,54 @@ def _glm_call(prompt, max_tokens, thinking):
             "GLM_CODING_LITE_KEY / GLM_CODING_TEAM_KEY to "
             f"{BASE / '.env'}. Never commit real keys.")
     body = {"model": GLM_MODEL, "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens, "temperature": 0.1}
-    if thinking is not None:
+            "max_tokens": max_tokens}
+    if ENGINE_FLAVOR == "glm":
+        body["temperature"] = 0.1   # kimi-for-coding only accepts temperature=1
+    if thinking is not None and ENGINE_FLAVOR == "glm":
         body["thinking"] = {"type": thinking}
     # Quota-exhaustion signatures on the coding endpoint. On these we rotate to
     # the next key in the chain instead of retrying the spent key. A billing
     # endpoint (1113 balance) can never be reached because GLM_BASE is pinned
     # to /api/coding/paas/v4.
-    _QUOTA_SIGNS = ("1113", "1311", "1302", "余额不足", "资源包", "额度")
-    last = None
+    # NOTE: 1302 ("并发量过高") is a CONCURRENCY rejection, not exhaustion --
+    # rotating keys does not help; the caller's 429 backoff handles it.
+    # 1311 ("套餐未开放该模型") is a plan-permission error -- same on every key.
+    _QUOTA_SIGNS = ("1113", "余额不足", "额度已用", "使用上限")
+    kind, last = None, None
     for ki, key in enumerate(GLM_KEYS):
-        req = urllib.request.Request(
-            GLM_BASE.rstrip("/") + "/chat/completions", data=json.dumps(body).encode(), method="POST",
-            headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"})
-        try:
-            with urllib.request.urlopen(req, timeout=900) as resp:
-                return json.load(resp)
-        except urllib.error.HTTPError as e:
-            detail = ""
+        for attempt in range(20):
+            req = urllib.request.Request(
+                GLM_BASE.rstrip("/") + "/chat/completions", data=json.dumps(body).encode(), method="POST",
+                headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"})
             try:
-                detail = e.read().decode("utf-8", "replace")
-            except Exception:
-                pass
-            quota_spent = e.code == 429 and any(s in detail for s in _QUOTA_SIGNS)
-            last = f"key#{ki + 1} HTTP {e.code}: {detail[:160]}"
-            log(f"  [glm] {last}")
-            if quota_spent and ki + 1 < len(GLM_KEYS):
-                continue            # rotate to next key
-            if e.code == 429:
-                raise urllib.error.HTTPError(req.full_url, e.code, detail[:200], e.headers, None)
-            raise
-        except Exception as e:
-            last = f"key#{ki + 1} {type(e).__name__}: {e}"
-            log(f"  [glm] {last}")
-            if ki + 1 < len(GLM_KEYS):
+                with urllib.request.urlopen(req, timeout=900) as resp:
+                    return json.load(resp)
+            except urllib.error.HTTPError as e:
+                detail = ""
+                try:
+                    detail = e.read().decode("utf-8", "replace")
+                except Exception:
+                    pass
+                last = f"key#{ki + 1} HTTP {e.code}: {detail[:160]}"
+                if e.code != 429:
+                    kind = "http"
+                    log(f"  [glm] {last}")
+                    break
+                if any(s in detail for s in _QUOTA_SIGNS):
+                    kind = "quota"          # exhausted: rotate to next key
+                    log(f"  [glm] {last}")
+                    break
+                # 1302 concurrency / other rate limit: wait, retry SAME key
+                time.sleep(30)
                 continue
-            raise
+            except Exception as e:
+                kind = "neterr"
+                last = f"key#{ki + 1} {type(e).__name__}: {e}"
+                log(f"  [glm] {last}")
+                break
+        if kind in ("quota", "neterr") and ki + 1 < len(GLM_KEYS):
+            continue
+        break
     raise RuntimeError(f"all {len(GLM_KEYS)} GLM keys failed; last: {last}")
 
 
@@ -464,16 +484,26 @@ def truncate_source(text, budget=MAX_CHARS, tail_frac=TAIL_FRACTION):
 
 def llm_extract(cand, latex_text):
     prompt = (EXTRACT_PROMPT
-              .replace("{title}", cand["crossref_title"])
+              .replace("{title}", cand.get("crossref_title") or cand.get("title") or "")
               .replace("{authors}", ", ".join(cand.get("authors", [])[:6]))
-              .replace("{journal}", cand["journal_name"])
-              .replace("{year}", str(cand["pub_year"]))
+              .replace("{journal}", cand.get("journal_name") or cand.get("journal") or "")
+              .replace("{year}", str(cand.get("pub_year") or cand.get("year") or ""))
               .replace("{arxiv_id}", cand["arxiv_id"])
               .replace("{latex}", truncate_source(latex_text)))
     # attempt 1: reason carefully. attempt 2: no thinking, so the JSON always lands.
-    plan = [(48000, "enabled", "reasoning"), (32000, "disabled", "fast")]
+    # glm-5.3 forces thinking: "disabled" is rejected (1210), so the fallback
+    # attempt uses the low thinking tier instead -- it preserves the JSON output
+    # budget (enabled-mode reasoning can starve it, finish=length content empty).
+    # 96k output budget (max accepted by the coding endpoint, probed live):
+    # runaway reasoning on hard/long papers hit 48k then 64k; 96k lets even
+    # the worst case finish thinking AND write the full JSON answer.
+    if ENGINE_FLAVOR == "openai":
+        plan = [(65536, None, "std"), (32768, None, "fb")]
+    else:
+        plan = [(98304, "enabled", "reasoning"), (98304, "low", "fast")]
     last = None
     in_tok = out_tok = 0
+    d = None                  # both retries may fail before assignment (quota wall)
     for max_tokens, thinking, mode in plan:
         for retry in range(2):
             try:
@@ -489,10 +519,10 @@ def llm_extract(cand, latex_text):
                 last = f"{type(e).__name__}: {e}"
                 time.sleep(5)
                 continue
-        u = d.get("usage", {}) or {}
+        u = (d or {}).get("usage", {}) or {}
         in_tok += u.get("prompt_tokens", 0) or 0
         out_tok += u.get("completion_tokens", 0) or 0
-        ch = (d.get("choices") or [{}])[0]
+        ch = ((d or {}).get("choices") or [{}])[0]
         content = (ch.get("message") or {}).get("content") or ""
         fin = ch.get("finish_reason")
         parsed = parse_json_loose(content)
@@ -550,7 +580,10 @@ CREATE TABLE IF NOT EXISTS runs (
 
 
 def init_db():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=60)
+    # WAL + generous busy_timeout: multiple engine processes share this db.
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=60000")
     conn.executescript(SCHEMA)
     return conn
 
@@ -562,9 +595,10 @@ def save_paper(conn, cand, **kw):
             "crossref_journal, pub_year, match_method, title, authors_json, arxiv_journal_ref, "
             "latex_chars, source_kind, fetch_status, extract_mode, tokens_in, tokens_out, "
             "extracted_at, error) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            (cand["arxiv_id"], cand["journal"], cand["journal_name"], cand["crossref_doi"],
-             cand["crossref_journal"], cand["pub_year"], cand["match_method"],
-             cand["crossref_title"], json.dumps(cand.get("authors", [])),
+            (cand["arxiv_id"], cand["journal"], cand.get("journal_name") or cand["journal"], cand["crossref_doi"],
+             cand.get("crossref_journal") or "", cand.get("pub_year") or cand.get("year") or 0,
+             cand.get("match_method") or cand.get("id_source") or "",
+             cand.get("crossref_title") or cand.get("title") or "", json.dumps(cand.get("authors", [])),
              cand.get("arxiv_journal_ref", ""),
              kw.get("latex_chars") or 0, kw.get("source_kind"), kw.get("fetch_status"),
              kw.get("extract_mode"), kw.get("tokens_in") or 0, kw.get("tokens_out") or 0,
@@ -584,7 +618,7 @@ def save_problems(conn, cand, probs):
                 "quote_location, self_contained, label, label_rationale, msc_primary, msc_secondary_json, "
                 "difficulty_hint, uncertainty_notes, content_hash, paper_time_status, current_status, "
                 "self_check, flag_for_human, related_note) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (pid, cand["arxiv_id"], cand["journal"], cand["pub_year"], quote,
+                (pid, cand["arxiv_id"], cand["journal"], cand.get("pub_year") or cand.get("year") or 0, quote,
                  p.get("quote_location", ""), p.get("self_contained", ""), p.get("label", "uncertain"),
                  p.get("label_rationale", ""), p.get("msc_primary", ""),
                  json.dumps(p.get("msc_secondary", [])), p.get("difficulty_hint", ""),
@@ -642,6 +676,24 @@ def main():
     conn = init_db()
     done = done_ids(conn)
     todo = [c for c in cands if c["arxiv_id"] not in done]
+
+    # Cache-missing papers burn ~6-9 min each serialized on the arXiv lock
+    # (server has no arXiv access; timeouts only). Push them to the END so
+    # cached papers extract immediately; the lost-cause tail drains last.
+    def _has_cache(c):
+        stem = c["arxiv_id"].replace("/", "_")
+        return ((LATEX_CACHE / f"{stem}.tex").exists()
+                or (LATEX_CACHE / f"{stem}.ar5iv.txt").exists())
+
+    todo.sort(key=lambda c: 0 if _has_cache(c) else 1)
+    n_nocache = sum(1 for c in todo if not _has_cache(c))
+    print(f"[pilot] cache-missing pushed to tail: {n_nocache}")
+
+    if ENGINE_SLICE:
+        i, n = (int(x) for x in ENGINE_SLICE.split("/"))
+        todo = todo[i - 1::n]
+        print(f"[pilot] engine slice {i}/{n} -> {len(todo)} papers "
+              f"(flavor={ENGINE_FLAVOR}, model={GLM_MODEL})")
     print(f"[pilot] candidates={len(cands)} done={len(done)} todo={len(todo)} workers={WORKERS}")
 
     t0 = time.time()

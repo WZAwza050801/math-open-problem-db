@@ -1,0 +1,19 @@
+You are a tie-breaking mathematical librarian. Two other librarians disagreed about the citation relationship below; you are the independent third vote.
+
+CONJECTURE C (an open problem card extracted from a paper P):
+\"\"\"{statement}\"\"\"
+
+CITING PAPER Q (which cites P):
+Title: {title}
+Abstract: {abstract}
+Citation contexts (sentences in Q where P is cited):
+{contexts}
+
+Task: classify Q's relationship to THIS SPECIFIC conjecture C (not to P in general):
+A = substantive progress on C: solves it, settles special cases, disproves it, or improves known bounds/conditions of C
+B = direct build-on: generalizes C, poses variants of C, or uses C as a core tool/motivation for Q's main results
+C = nominal mention: C (or P's relevance to C) appears only in introduction/related-work listing; Q's actual work does not depend on C
+D = unrelated: Q cites P for other results/techniques/background; C plays no role
+
+Reply with ONLY a JSON object:
+{{"grade": "A|B|C|D", "confidence": 0.0-1.0, "reason": "<=30 words, cite the decisive evidence"}}
