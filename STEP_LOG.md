@@ -210,3 +210,9 @@
 - 过程：.gitignore 补三块（external_ingest/ 2.4G、pilot/influence_calibration/ 判定数据、*.log/候选池 json）→ 密钥正则扫描暂存区零命中 → exports/ 原文红线文件保持移出跟踪 → 提交 f34b513（111 文件，3 万行）→ gh 建公开仓 math-open-problem-db 推送成功
 - 结果：github.com/WZAwza050801/math-open-problem-db 公开可访问；远端复核 exports/钥匙/校准数据/大模型文件均不在库内；本地工作区 status 全清
 - 备注：本机 GITHUB_TOKEN 环境变量已失效，用 `env -u GITHUB_TOKEN gh ...` 走 keyring 凭据（账号 WZAwza050801）
+
+## S020 · 补齐服务器专属脚本入公开仓（2026-10-01）
+
+- 输入：服务器 pilot/ 目录脚本清单 vs 公开仓跟踪清单的差集（10 个）
+- 过程：scp 拉回 9 个服务器独有脚本到 pilot/server_ops/（看门狗/监控板/短标题生成/外部卡向量化/DDL迁移/试判应用/引擎启停/冒烟/收尾脚本；backup_daily.sh 与本地 ops/ 版一字不差不重复入）→ 密钥扫描零命中 → 提交推送
+- 结果：公开仓代码层双端齐平——此后任何一端改脚本都能在 git 里对齐 diff，不再有"只在服务器上改过"的孤儿文件
